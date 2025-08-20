@@ -1,7 +1,5 @@
-import os
-import sqlite3
 import datetime as dt
-from typing import List, Optional, Tuple
+from typing import Tuple
 
 import pandas as pd
 import plotly.express as px
@@ -11,7 +9,7 @@ import db
 from auth import hash_password, verify_password
 
 
-# ---------- App Bootstrap ---------- #
+# App Bootstrap
 st.set_page_config(
     page_title="Expense Tracker",
     page_icon="💸",
@@ -23,7 +21,7 @@ st.set_page_config(
 db.init_db()
 
 
-# ---------- Helpers ---------- #
+# Helpers 
 def get_month_bounds(target_date: dt.date) -> Tuple[dt.date, dt.date]:
     first_day = target_date.replace(day=1)
     if first_day.month == 12:
@@ -55,7 +53,7 @@ def ensure_session_defaults() -> None:
 ensure_session_defaults()
 
 
-# ---------- Sidebar: Auth ---------- #
+#  Sidebar: Auth 
 with st.sidebar:
     st.title("💸 Expense Tracker")
     st.caption("Streamlit + SQLite")
@@ -118,7 +116,7 @@ with st.sidebar:
         st.caption(st.session_state.auth["email"])
         if st.button("Sign Out"):
             st.session_state.auth = {"user_id": None, "name": None, "email": None, "logged_in": False}
-            st.experimental_rerun()
+            st.rerun()
 
 
 if not st.session_state.auth["logged_in"]:
@@ -126,8 +124,11 @@ if not st.session_state.auth["logged_in"]:
     st.stop()
 
 
-# ---------- Sidebar: Filters & Navigation ---------- #
+# Sidebar: Filters & Navigation 
 with st.sidebar:
+    st.markdown("---")
+    page = st.radio("Navigate", ["Dashboard", "Add Transaction", "Transactions", "Budgets", "Group Expenses", "Import/Export", "Settings"], index=0)
+
     st.markdown("---")
     st.subheader("Filters")
     categories = ["All"] + db.get_distinct_categories(st.session_state.auth["user_id"])
@@ -147,11 +148,7 @@ with st.sidebar:
         }
     )
 
-    st.markdown("---")
-    page = st.radio("Navigate", ["Dashboard", "Add Transaction", "Transactions", "Budgets", "Group Expenses", "Import/Export", "Settings"], index=0)
-
-
-# ---------- Data Loading ---------- #
+# Data Loading 
 def load_transactions_df() -> pd.DataFrame:
     user_id = st.session_state.auth["user_id"]
     f = st.session_state.filters
@@ -177,22 +174,9 @@ def kpi(total_expense: float, total_income: float) -> None:
     c3.metric("Net", f"₹ {net:,.2f}", delta=f"{(total_income/total_expense - 1)*100:.1f}%" if total_expense else None)
 
 
-# ---------- Pages ---------- #
+# Pages 
 if page == "Dashboard":
     st.header("Dashboard")
-    
-    # Theme Toggle
-    theme = st.sidebar.selectbox("Theme", ["Light", "Dark"], 
-                               help="Select your preferred theme")
-    if theme == "Dark":
-        st.markdown("""
-        <style>
-        .stApp {
-            background-color: #0B1220;
-            color: #E5E7EB;
-        }
-        </style>
-        """, unsafe_allow_html=True)
     
     df = load_transactions_df()
     if df.empty:
@@ -312,7 +296,7 @@ elif page == "Add Transaction":
                     tags=tags.strip() or None,
                 )
                 st.success("Transaction added.")
-                st.experimental_rerun()
+                st.rerun()
 
 elif page == "Transactions":
     st.header("Transactions")
@@ -332,7 +316,7 @@ elif page == "Transactions":
             if st.button("Delete", type="primary"):
                 db.delete_transaction(selected_id, st.session_state.auth["user_id"])
                 st.warning("Transaction deleted.")
-                st.experimental_rerun()
+                st.rerun()
         with col3:
             open_edit = st.checkbox("Edit")
 
@@ -364,7 +348,7 @@ elif page == "Transactions":
                         tags=e_tags.strip() or None,
                     )
                     st.success("Transaction updated.")
-                    st.experimental_rerun()
+                    st.rerun()
 
 elif page == "Budgets":
     st.header("Budgets")
@@ -446,120 +430,8 @@ elif page == "Import/Export":
             st.success(f"Imported {inserted} transactions.")
 
 elif page == "Group Expenses":
-    st.header("Group Expenses 👥")
-    
-    # Split view into tabs
-    tab_view, tab_add, tab_settle = st.tabs(["View Expenses", "Add Expense", "Settle Up"])
-    
-    with tab_add:
-        st.subheader("Add Group Expense")
-        with st.form("add_group_expense"):
-            title = st.text_input("Title", placeholder="Dinner, Trip, etc.")
-            amount = st.number_input("Total Amount (₹)", min_value=0.0, step=100.0)
-            category = st.text_input("Category", placeholder="Food, Travel, etc.")
-            date = st.date_input("Date", value=dt.date.today())
-            description = st.text_area("Description")
-            
-            # Get all users for splitting
-            all_users = db.get_all_users()
-            selected_users = st.multiselect(
-                "Split With",
-                options=[(u["id"], u["name"]) for u in all_users if u["id"] != st.session_state.auth["user_id"]],
-                format_func=lambda x: x[1]
-            )
-            
-            split_type = st.radio("Split Type", ["Equal", "Custom"])
-            shares = []
-            
-            if split_type == "Equal" and selected_users:
-                share_amount = amount / (len(selected_users) + 1)  # +1 for current user
-                for user_id, _ in selected_users:
-                    shares.append({"user_id": user_id, "amount": share_amount})
-                shares.append({"user_id": st.session_state.auth["user_id"], "amount": share_amount})
-            
-            elif split_type == "Custom" and selected_users:
-                st.write("Enter share amounts:")
-                total = 0
-                for user_id, name in selected_users:
-                    share = st.number_input(f"Amount for {name}", 
-                                         min_value=0.0, 
-                                         max_value=amount,
-                                         step=10.0)
-                    if share > 0:
-                        shares.append({"user_id": user_id, "amount": share})
-                        total += share
-                
-                remaining = amount - total
-                if remaining > 0:
-                    shares.append({"user_id": st.session_state.auth["user_id"], 
-                                 "amount": remaining})
-                st.write(f"Your share: ₹{remaining:,.2f}")
-            
-            if st.form_submit_button("Add Group Expense"):
-                if not title or amount <= 0 or not selected_users:
-                    st.error("Please fill in all required fields.")
-                elif sum(s["amount"] for s in shares) != amount:
-                    st.error("Share amounts must equal total amount.")
-                else:
-                    db.add_group_expense(
-                        title=title,
-                        amount=amount,
-                        payer_id=st.session_state.auth["user_id"],
-                        category=category,
-                        date=date,
-                        description=description,
-                        shares=shares
-                    )
-                    st.success("Group expense added successfully!")
-                    st.experimental_rerun()
-    
-    with tab_view:
-        expenses = db.get_group_expenses(st.session_state.auth["user_id"])
-        if not expenses:
-            st.info("No group expenses found.")
-        else:
-            # Group expenses by whether they're settled
-            df = pd.DataFrame(expenses)
-            df["date"] = pd.to_datetime(df["date"]).dt.date
-            
-            st.subheader("Your Group Expenses")
-            
-            # Summary metrics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                total_owed = df[~df["is_settled"]]["share_amount"].sum()
-                st.metric("You Owe", f"₹ {total_owed:,.2f}")
-            with col2:
-                total_paid = df[df["payer_id"] == st.session_state.auth["user_id"]]["amount"].sum()
-                st.metric("You Paid", f"₹ {total_paid:,.2f}")
-            with col3:
-                net = total_paid - total_owed
-                st.metric("Net Balance", f"₹ {net:,.2f}")
-            
-            # Display expenses
-            st.write("#### Recent Expenses")
-            for exp in expenses:
-                with st.expander(f"{exp['title']} - ₹{exp['amount']:,.2f} ({exp['date']})"):
-                    st.write(f"**Category:** {exp['category']}")
-                    st.write(f"**Paid by:** {exp['payer_name']}")
-                    st.write(f"**Your share:** ₹{exp['share_amount']:,.2f}")
-                    st.write(f"**Status:** {'Settled' if exp['is_settled'] else 'Pending'}")
-                    if exp['description']:
-                        st.write(f"**Description:** {exp['description']}")
-    
-    with tab_settle:
-        st.subheader("Settle Up")
-        unsettled = [e for e in expenses if not e["is_settled"]]
-        if not unsettled:
-            st.success("You're all settled up! No pending payments.")
-        else:
-            st.write("Select expenses to settle:")
-            for exp in unsettled:
-                if st.checkbox(f"{exp['title']} - ₹{exp['share_amount']:,.2f} to {exp['payer_name']}"):
-                    if st.button(f"Settle {exp['title']}", key=f"settle_{exp['id']}"):
-                        db.settle_expense_share(exp["id"], st.session_state.auth["user_id"])
-                        st.success(f"Marked {exp['title']} as settled!")
-                        st.experimental_rerun()
+    st.switch_page("pages/4_👥_Group_Expenses.py")
+
 
 elif page == "Settings":
     st.header("Settings")

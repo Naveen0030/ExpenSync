@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import datetime as dt
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 DB_PATH = os.getenv("EXPENSE_TRACKER_DB", os.path.join(os.getcwd(), "expense_tracker.db"))
@@ -26,7 +26,7 @@ def init_db() -> None:
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
-        
+
         CREATE TABLE IF NOT EXISTS group_expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -35,17 +35,20 @@ def init_db() -> None:
             category TEXT,
             date TEXT NOT NULL,
             description TEXT,
+            is_settled INTEGER DEFAULT 0,           -- settlement tracking
+            settled_at TEXT,                        -- settlement timestamp
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (payer_id) REFERENCES users(id) ON DELETE CASCADE
         );
-        
+
         CREATE TABLE IF NOT EXISTS group_expense_shares (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             group_expense_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             share_amount REAL NOT NULL,
-            is_settled INTEGER DEFAULT 0,
-            settled_at TEXT,
+            is_settled INTEGER DEFAULT 0,           -- share settlement status
+            settled_at TEXT,                        -- share settlement timestamp
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (group_expense_id) REFERENCES group_expenses(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
@@ -67,8 +70,8 @@ def init_db() -> None:
         CREATE TABLE IF NOT EXISTS budgets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            year_month TEXT NOT NULL, -- format YYYY-MM
-            category TEXT,            -- NULL means overall budget
+            year_month TEXT NOT NULL,               -- format YYYY-MM
+            category TEXT,                          -- NULL means overall budget
             amount REAL NOT NULL,
             UNIQUE(user_id, year_month, category),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -113,7 +116,7 @@ def update_user_password(user_id: int, new_hash: str) -> None:
     conn.close()
 
 
-# ---------- Transaction operations ---------- #
+# Transaction operations
 def add_transaction(
     user_id: int,
     amount: float,
@@ -221,13 +224,16 @@ def list_transactions(
 def get_distinct_categories(user_id: int) -> List[str]:
     conn = _connect()
     cur = conn.cursor()
-    cur.execute("SELECT DISTINCT COALESCE(category,'Uncategorized') AS category FROM transactions WHERE user_id = ? ORDER BY 1", (user_id,))
+    cur.execute(
+        "SELECT DISTINCT COALESCE(category,'Uncategorized') AS category FROM transactions WHERE user_id = ? ORDER BY 1",
+        (user_id,),
+    )
     rows = [r["category"] for r in cur.fetchall()]
     conn.close()
     return rows
 
 
-# ---------- Group Expense operations ---------- #
+# Group Expense operations 
 def add_group_expense(
     title: str,
     amount: float,
@@ -263,97 +269,29 @@ def add_group_expense(
     finally:
         conn.close()
 
+
 def get_group_expenses(user_id: int) -> List[Dict[str, Any]]:
+    """Fetch all group expenses related to a user, including their share info."""
     conn = _connect()
     cur = conn.cursor()
     cur.execute(
         """
         SELECT 
-            ge.*, 
-            u.name as payer_name,
+            ge.id AS expense_id,
+            ge.title,
+            ge.amount,
+            ge.category,
+            ge.date,
+            ge.description,
+            ge.payer_id,
+            ge.is_settled,         -- NEW
+            ge.settled_at,         -- NEW
+            u.name AS payer_name,
+            ges.id AS share_id,
+            ges.user_id,
             ges.share_amount,
-            ges.is_settled
-        FROM group_expenses ge
-        JOIN users u ON ge.payer_id = u.id
-        JOIN group_expense_shares ges ON ge.id = ges.group_expense_id
-        WHERE ges.user_id = ?
-        ORDER BY ge.date DESC, ge.id DESC
-        """,
-        (user_id,)
-    )
-    rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return rows
-
-def settle_expense_share(share_id: int, user_id: int) -> None:
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        UPDATE group_expense_shares 
-        SET is_settled = 1, settled_at = datetime('now')
-        WHERE id = ? AND user_id = ?
-        """,
-        (share_id, user_id)
-    )
-    conn.commit()
-    conn.close()
-
-def get_all_users() -> List[Dict[str, Any]]:
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute("SELECT id, name, email FROM users ORDER BY name")
-    rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return rows
-
-# ---------- Group Expense operations ---------- #
-def add_group_expense(
-    title: str,
-    amount: float,
-    payer_id: int,
-    category: str,
-    date: dt.date,
-    description: str,
-    shares: List[Dict[str, Any]]
-) -> int:
-    conn = _connect()
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            """
-            INSERT INTO group_expenses(title, amount, payer_id, category, date, description)
-            VALUES(?,?,?,?,?,?)
-            """,
-            (title, amount, payer_id, category, date.isoformat(), description)
-        )
-        expense_id = cur.lastrowid
-        
-        for share in shares:
-            cur.execute(
-                """
-                INSERT INTO group_expense_shares(group_expense_id, user_id, share_amount)
-                VALUES(?,?,?)
-                """,
-                (expense_id, share["user_id"], share["amount"])
-            )
-        
-        conn.commit()
-        return int(expense_id)
-    finally:
-        conn.close()
-
-def get_group_expenses(user_id: int) -> List[Dict[str, Any]]:
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT 
-            ge.*,
-            u.name as payer_name,
-            ges.share_amount,
-            ges.is_settled,
-            ges.id as share_id
+            ges.is_settled AS share_settled,
+            ges.settled_at AS share_settled_at
         FROM group_expenses ge
         JOIN users u ON ge.payer_id = u.id
         JOIN group_expense_shares ges ON ge.id = ges.group_expense_id
@@ -367,18 +305,56 @@ def get_group_expenses(user_id: int) -> List[Dict[str, Any]]:
     return rows
 
 def settle_expense_share(share_id: int, user_id: int) -> None:
+    """Mark a specific user's share in a group expense as settled.
+       If all shares are settled, also mark the whole expense as settled.
+    """
     conn = _connect()
     cur = conn.cursor()
+
+    # 1. Mark this share as settled
     cur.execute(
         """
-        UPDATE group_expense_shares 
+        UPDATE group_expense_shares
         SET is_settled = 1, settled_at = datetime('now')
         WHERE id = ? AND user_id = ?
         """,
         (share_id, user_id)
     )
+
+    # 2. Find the expense_id linked to this share
+    cur.execute(
+        "SELECT group_expense_id FROM group_expense_shares WHERE id = ?",
+        (share_id,)
+    )
+    row = cur.fetchone()
+    if row:
+        group_expense_id = row[0]
+
+        # 3. Check if all shares of this expense are settled
+        cur.execute(
+            """
+            SELECT COUNT(*) 
+            FROM group_expense_shares
+            WHERE group_expense_id = ? AND is_settled = 0
+            """,
+            (group_expense_id,)
+        )
+        pending_count = cur.fetchone()[0]
+
+        if pending_count == 0:
+            cur.execute(
+                """
+                UPDATE group_expenses
+                SET is_settled = 1, settled_at = datetime('now')
+                WHERE id = ?
+                """,
+                (group_expense_id,)
+            )
+
+
     conn.commit()
     conn.close()
+
 
 def get_all_users() -> List[Dict[str, Any]]:
     conn = _connect()
@@ -388,7 +364,8 @@ def get_all_users() -> List[Dict[str, Any]]:
     conn.close()
     return rows
 
-# ---------- Budget operations ---------- #
+
+# Budget operations
 def set_budget(user_id: int, year_month: str, category: Optional[str], amount: float) -> None:
     conn = _connect()
     cur = conn.cursor()
@@ -415,5 +392,3 @@ def get_budget(user_id: int, year_month: str, category: Optional[str]) -> Option
     row = cur.fetchone()
     conn.close()
     return float(row["amount"]) if row else None
-
-
