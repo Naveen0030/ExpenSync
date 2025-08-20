@@ -2,37 +2,37 @@
 
 A modern, feature-rich expense tracking application built with Streamlit and SQLite. Track personal and group expenses, analyze spending patterns, and manage budgets with an intuitive interface.
 
-## ✨ Features
+## Features
 
 ### Personal Finance Management
-- 📝 Add, edit, and delete transactions (expenses/income)
-- 📊 Dashboard with spending analytics and visualizations
-- 💰 Monthly budget tracking (overall and per category)
-- 🔍 Advanced filtering by date, category, and transaction type
-- 📈 Interactive charts and financial insights
+-  Add, edit, and delete transactions (expenses/income)
+-  Dashboard with spending analytics and visualizations
+-  Monthly budget tracking (overall and per category)
+-  Advanced filtering by date, category, and transaction type
+-  Interactive charts and financial insights
 
 ### Group Expense Management
-- 👥 Split expenses with friends and family
-- ⚖️ Equal or custom amount splitting
-- 💳 Track who paid and who owes
-- ✅ Settlement tracking and history
-- 📊 Group expense dashboard
+-  Split expenses with friends and family
+-  Equal or custom amount splitting
+-  Track who paid and who owes
+-  Settlement tracking and history
+-  Group expense dashboard
 
 ### Data Visualization
-- 📈 Daily/Weekly/Monthly/Yearly trends
-- 🥧 Category-wise expense breakdown
-- 📊 Interactive charts with Plotly
-- 📉 Spending pattern analysis
-- 💹 Budget utilization tracking
+-  Daily/Weekly/Monthly/Yearly trends
+-  Category-wise expense breakdown
+-  Interactive charts with Plotly
+-  Spending pattern analysis
+-  Budget utilization tracking
 
 ### User Interface
-- 🌓 Dark/Light theme support
-- 📱 Responsive design
-- 📊 Interactive dashboards
-- 🔄 Real-time updates
-- 🎯 Intuitive navigation
+-  Dark/Light theme support
+-  Responsive design
+-  Interactive dashboards
+-  Real-time updates
+-  Intuitive navigation
 
-## 🛠️ Technical Stack
+##  Technical Stack
 
 - **Frontend:** Streamlit
 - **Backend:** Python
@@ -41,7 +41,7 @@ A modern, feature-rich expense tracking application built with Streamlit and SQL
 - **Visualization:** Plotly
 - **Data Processing:** Pandas
 
-## 📋 Requirements
+##  Requirements
 
 ```
 streamlit==1.37.1
@@ -51,7 +51,7 @@ passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
 ```
 
-## 🚀 Setup and Installation
+##  Setup and Installation
 
 1. Clone the repository:
 ```bash
@@ -82,7 +82,7 @@ streamlit run streamlit_app.py
 
 The application will automatically create the database file (`expense_tracker.db`) when first run.
 
-## 📱 Usage
+##  Usage
 
 ### 1. Authentication
 - Register a new account with your email
@@ -114,21 +114,21 @@ The application will automatically create the database file (`expense_tracker.db
 - View budget utilization progress
 - Get insights on spending patterns
 
-## 💾 Data Management
+##  Data Management
 
 - Data is stored locally in SQLite database
 - Automatic database creation and schema management
 - Support for data import/export
 - Secure password hashing
 
-## 🔒 Security Features
+##  Security Features
 
 - Password hashing using bcrypt
 - Email format validation
 - Input validation and sanitization
 - Secure session management
 
-## 📊 Database Schema
+##  Database Schema
 
 The application uses the following main tables:
 - `users`: User account information
@@ -137,23 +137,20 @@ The application uses the following main tables:
 - `group_expenses`: Shared expense records
 - `group_expense_shares`: Individual shares in group expenses
 
-## 🤝 Contributing
+##  Contributing
 
 Feel free to:
 - Report bugs
 - Suggest features
 - Submit pull requests
 
-## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - Streamlit for the amazing framework
 - The Python community for excellent libraries
 - Contributors and users of this project
 
-## 📞 Contact
+##  Contact
 
 For any queries or suggestions, please open an issue in the GitHub repository.
