@@ -7,30 +7,66 @@ import db
 from auth import hash_password, verify_password
 
 
-def get_month_bounds(target_date: dt.date) -> Tuple[dt.date, dt.date]:
-    first = target_date.replace(day=1)
-    if first.month == 12:
-        next_first = first.replace(year=first.year + 1, month=1)
-    else:
-        next_first = first.replace(month=first.month + 1)
-    last = next_first - dt.timedelta(days=1)
-    return first, last
+def init_app():
+    """Initialize the Streamlit app with proper session state"""
+    st.set_page_config(
+        page_title="ExpenSync",
+        page_icon="💸",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    
+    ensure_session_defaults()
 
-
-def init_app() -> None:
-    st.set_page_config(page_title="Expense Tracker", page_icon="💸", layout="wide")
-    db.init_db()
+def ensure_session_defaults() -> None:
+    """Ensure all required session state variables exist"""
     if "auth" not in st.session_state:
-        st.session_state.auth = {"user_id": None, "name": None, "email": None, "logged_in": False}
+        st.session_state.auth = {
+            "user_id": None,
+            "name": None,
+            "email": None,
+            "logged_in": False,
+        }
     if "filters" not in st.session_state:
         start, end = get_month_bounds(dt.date.today())
-        st.session_state.filters = {"start_date": start, "end_date": end, "category": "All", "txn_type": "All"}
+        st.session_state.filters = {
+            "start_date": start,
+            "end_date": end,
+            "category": "All",
+            "txn_type": "All",
+        }
+
+def get_month_bounds(target_date: dt.date) -> Tuple[dt.date, dt.date]:
+    """Get the first and last day of the month for a given date"""
+    first_day = target_date.replace(day=1)
+    if first_day.month == 12:
+        next_month_first = first_day.replace(year=first_day.year + 1, month=1)
+    else:
+        next_month_first = first_day.replace(month=first_day.month + 1)
+    last_day = next_month_first - dt.timedelta(days=1)
+    return first_day, last_day
+
+def is_user_logged_in() -> bool:
+    """Check if user is currently logged in"""
+    return st.session_state.get("auth", {}).get("logged_in", False)
+
+def get_current_user_id() -> int:
+    """Get the current user's ID"""
+    if not is_user_logged_in():
+        return None
+    return st.session_state.auth["user_id"]
+
+def get_current_user_name() -> str:
+    """Get the current user's name"""
+    if not is_user_logged_in():
+        return None
+    return st.session_state.auth["name"]
 
 
 def auth_sidebar() -> None:
     with st.sidebar:
-        st.title("💸 Expense Tracker")
-        st.caption("Streamlit + SQLite")
+        st.title("💸 ExpenSync")
+        st.caption("Expenses Tracker")
         if not st.session_state.auth["logged_in"]:
             tab_login, tab_register = st.tabs(["Login", "Register"])
             with tab_login:

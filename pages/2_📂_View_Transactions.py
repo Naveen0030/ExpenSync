@@ -4,10 +4,22 @@ import streamlit as st
 import db
 from utils import session as ss
 
-
 ss.init_app()
-ss.auth_sidebar()
-ss.require_login()
+
+# Check if user is logged in - redirect if not
+if not st.session_state.get("auth", {}).get("logged_in", False):
+    st.error("Please login from the main page to access this feature.")
+    st.stop()
+
+# Simple sidebar with user info only
+with st.sidebar:
+    st.markdown("---")
+    st.subheader(f"👋 Hello, {st.session_state.auth['name']}")
+    st.caption(f"📧 {st.session_state.auth['email']}")
+    
+    if st.button("🚪 Sign Out", use_container_width=True):
+        st.session_state.auth = {"user_id": None, "name": None, "email": None, "logged_in": False}
+        st.switch_page("streamlit_app.py")
 
 st.title("📂 View Transactions")
 
@@ -69,5 +81,3 @@ if open_edit and selected_id:
             )
             st.success("Transaction updated.")
             st.rerun()
-
-

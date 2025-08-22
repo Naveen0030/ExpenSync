@@ -11,7 +11,7 @@ from auth import hash_password, verify_password
 
 # App Bootstrap
 st.set_page_config(
-    page_title="Expense Tracker",
+    page_title="ExpenSync",
     page_icon="💸",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -53,89 +53,110 @@ def ensure_session_defaults() -> None:
 ensure_session_defaults()
 
 
-#  Sidebar: Auth 
-with st.sidebar:
-    st.title("💸 Expense Tracker")
-    st.caption("Streamlit + SQLite")
+# Main Page Title
+st.title("💸 ExpenSync")
+st.caption("Expenses Tracker")
 
-    def is_valid_email(email: str) -> bool:
-        """Validate email format using a simple regex pattern."""
-        import re
-        pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        return bool(re.match(pattern, email))
+def is_valid_email(email: str) -> bool:
+    """Validate email format using a simple regex pattern."""
+    import re
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return bool(re.match(pattern, email))
 
-    if not st.session_state.auth["logged_in"]:
-        tab_login, tab_register = st.tabs(["Login", "Register"])
-
-        with tab_login:
-            with st.form("login_form", clear_on_submit=False):
-                email = st.text_input("Email", key="login_email")
-                password = st.text_input("Password", type="password", key="login_password")
-                submitted = st.form_submit_button("Sign In")
-                if submitted:
-                    if not is_valid_email(email):
-                        st.error("Please enter a valid email address.")
-                    else:
-                        user = db.get_user_by_email(email)
-                        if not user:
-                            st.error("No account found with this email.")
-                        else:
-                            if verify_password(password, user["password_hash"]):
-                                st.session_state.auth = {
-                                    "user_id": user["id"],
-                                    "name": user["name"],
-                                    "email": user["email"],
-                                    "logged_in": True,
-                                }
-                                st.success("Signed in successfully.")
-                                st.rerun()
-                            else:
-                                st.error("Incorrect password.")
-
-        with tab_register:
-            with st.form("register_form", clear_on_submit=True):
-                name = st.text_input("Full Name")
-                reg_email = st.text_input("Email", key="register_email")
-                reg_password = st.text_input("Password", type="password", key="register_password")
-                reg_password2 = st.text_input("Confirm Password", type="password", key="register_password2")
-                submitted = st.form_submit_button("Create Account")
-                if submitted:
-                    if not name or not reg_email or not reg_password:
-                        st.error("All fields are required.")
-                    elif not is_valid_email(reg_email):
-                        st.error("Please enter a valid email address.")
-                    elif reg_password != reg_password2:
-                        st.error("Passwords do not match.")
-                    elif db.get_user_by_email(reg_email):
-                        st.error("An account with this email already exists.")
-                    else:
-                        db.create_user(name=name, email=reg_email, password_hash=hash_password(reg_password))
-                        st.success("Account created. You can log in now.")
-    else:
-        st.subheader(f"Hello, {st.session_state.auth['name']}")
-        st.caption(st.session_state.auth["email"])
-        if st.button("Sign Out"):
-            st.session_state.auth = {"user_id": None, "name": None, "email": None, "logged_in": False}
-            st.rerun()
-
-
+# Main Page Authentication
 if not st.session_state.auth["logged_in"]:
-    st.info("Please log in or register from the left sidebar to continue.")
+    st.markdown("---")
+    st.subheader("Welcome! Please login or create an account to continue.")
+    
+    tab_login, tab_register = st.tabs(["🔑 Login", "📝 Register"])
+
+    with tab_login:
+        st.markdown("#### Sign in to your account")
+        with st.form("login_form", clear_on_submit=False):
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                email = st.text_input("Email Address", key="login_email", placeholder="Enter your email")
+                password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
+            with col2:
+                st.write("")
+                st.write("")
+                submitted = st.form_submit_button("Sign In", use_container_width=True, type="primary")
+                
+            if submitted:
+                if not email or not password:
+                    st.error("Please fill in both email and password.")
+                elif not is_valid_email(email):
+                    st.error("Please enter a valid email address.")
+                else:
+                    user = db.get_user_by_email(email)
+                    if not user:
+                        st.error("No account found with this email.")
+                    else:
+                        if verify_password(password, user["password_hash"]):
+                            st.session_state.auth = {
+                                "user_id": user["id"],
+                                "name": user["name"],
+                                "email": user["email"],
+                                "logged_in": True,
+                            }
+                            st.success("Signed in successfully!")
+                            st.rerun()
+                        else:
+                            st.error("Incorrect password.")
+
+    with tab_register:
+        st.markdown("#### Create a new account")
+        with st.form("register_form", clear_on_submit=True):
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                name = st.text_input("Full Name", placeholder="Enter your full name")
+                reg_email = st.text_input("Email Address", key="register_email", placeholder="Enter your email")
+                reg_password = st.text_input("Password", type="password", key="register_password", placeholder="Create a password")
+                reg_password2 = st.text_input("Confirm Password", type="password", key="register_password2", placeholder="Confirm your password")
+            with col2:
+                st.write("") 
+                st.write("")
+                st.write("")
+                st.write("")
+                submitted = st.form_submit_button("Create Account", use_container_width=True, type="primary")
+                
+            if submitted:
+                if not name or not reg_email or not reg_password:
+                    st.error("All fields are required.")
+                elif not is_valid_email(reg_email):
+                    st.error("Please enter a valid email address.")
+                elif len(reg_password) < 6:
+                    st.error("Password must be at least 6 characters long.")
+                elif reg_password != reg_password2:
+                    st.error("Passwords do not match.")
+                elif db.get_user_by_email(reg_email):
+                    st.error("An account with this email already exists.")
+                else:
+                    db.create_user(name=name, email=reg_email, password_hash=hash_password(reg_password))
+                    st.success("Account created successfully! You can now log in.")
+
     st.stop()
 
-
-# Sidebar: Filters & Navigation 
+# If user is logged in, show sidebar and main content
 with st.sidebar:
     st.markdown("---")
-    page = st.radio("Navigate", ["Dashboard", "Add Transaction", "Transactions", "Budgets", "Group Expenses", "Import/Export", "Settings"], index=0)
+    st.subheader(f"👋 Hello, {st.session_state.auth['name']}")
+    st.caption(f"📧 {st.session_state.auth['email']}")
+    
+    if st.button("🚪 Sign Out", use_container_width=True):
+        st.session_state.auth = {"user_id": None, "name": None, "email": None, "logged_in": False}
+        st.rerun()
 
     st.markdown("---")
-    st.subheader("Filters")
+    page = st.radio("📍 Navigate", ["Dashboard", "Add Transaction", "Transactions", "Budgets", "Group Expenses", "Import/Export", "Settings"], index=0)
+
+    st.markdown("---")
+    st.subheader("🔍 Filters")
     categories = ["All"] + db.get_distinct_categories(st.session_state.auth["user_id"])
     start_default = st.session_state.filters["start_date"]
     end_default = st.session_state.filters["end_date"]
-    start_date = st.date_input("Start", value=start_default)
-    end_date = st.date_input("End", value=end_default)
+    start_date = st.date_input("Start Date", value=start_default)
+    end_date = st.date_input("End Date", value=end_default)
     category_filter = st.selectbox("Category", categories, index=categories.index(st.session_state.filters["category"]) if st.session_state.filters["category"] in categories else 0)
     type_filter = st.selectbox("Type", ["All", "Expense", "Income"], index=["All", "Expense", "Income"].index(st.session_state.filters["txn_type"]))
 
@@ -176,7 +197,7 @@ def kpi(total_expense: float, total_income: float) -> None:
 
 # Pages 
 if page == "Dashboard":
-    st.header("Dashboard")
+    st.header("📊 Dashboard")
     
     df = load_transactions_df()
     if df.empty:
@@ -203,7 +224,7 @@ if page == "Dashboard":
             df['period'] = df['date'].dt.strftime('%Y-%m-%d')
 
         # Visualization Tabs
-        tab1, tab2, tab3 = st.tabs(["Trends", "Categories", "Analysis"])
+        tab1, tab2, tab3 = st.tabs(["📈 Trends", "🥧 Categories", "📊 Analysis"])
         
         with tab1:
             # Trend Analysis
@@ -256,7 +277,7 @@ if page == "Dashboard":
                                title="Expense Distribution by Category")
                 st.plotly_chart(fig_box, use_container_width=True)
 
-        st.subheader("Budget Progress")
+        st.subheader("💰 Budget Progress")
         ym = st.session_state.filters["start_date"].strftime("%Y-%m")
         overall_budget = db.get_budget(st.session_state.auth["user_id"], ym, category=None)
         if overall_budget is not None:
@@ -267,7 +288,7 @@ if page == "Dashboard":
             st.caption("No budget set for this month.")
 
 elif page == "Add Transaction":
-    st.header("Add Transaction")
+    st.header("➕ Add Transaction")
     with st.form("add_txn_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -280,7 +301,7 @@ elif page == "Add Transaction":
             payment_method = st.text_input("Payment Method", placeholder="UPI, Card, Cash")
             tags = st.text_input("Tags (comma-separated)")
         description = st.text_area("Description", placeholder="Optional notes")
-        submitted = st.form_submit_button("Save")
+        submitted = st.form_submit_button("💾 Save Transaction", type="primary")
         if submitted:
             if amount <= 0:
                 st.error("Amount must be greater than 0.")
@@ -295,11 +316,11 @@ elif page == "Add Transaction":
                     payment_method=payment_method.strip() or None,
                     tags=tags.strip() or None,
                 )
-                st.success("Transaction added.")
+                st.success("Transaction added successfully!")
                 st.rerun()
 
 elif page == "Transactions":
-    st.header("Transactions")
+    st.header("📋 Transactions")
     df = load_transactions_df()
     if df.empty:
         st.info("No transactions to display.")
@@ -307,18 +328,18 @@ elif page == "Transactions":
         st.dataframe(df.sort_values("date", ascending=False), use_container_width=True)
 
         st.markdown("---")
-        st.subheader("Edit / Delete")
+        st.subheader("✏️ Edit / Delete")
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
             txn_ids = df["id"].tolist()
             selected_id = st.selectbox("Select Transaction ID", txn_ids)
         with col2:
-            if st.button("Delete", type="primary"):
+            if st.button("🗑️ Delete", type="primary"):
                 db.delete_transaction(selected_id, st.session_state.auth["user_id"])
                 st.warning("Transaction deleted.")
                 st.rerun()
         with col3:
-            open_edit = st.checkbox("Edit")
+            open_edit = st.checkbox("✏️ Edit")
 
         if open_edit and selected_id:
             row = df[df["id"] == selected_id].iloc[0]
@@ -334,7 +355,7 @@ elif page == "Transactions":
                     e_payment = st.text_input("Payment Method", value=row.get("payment_method") or "")
                     e_tags = st.text_input("Tags", value=row.get("tags") or "")
                 e_desc = st.text_area("Description", value=row.get("description") or "")
-                save = st.form_submit_button("Save Changes")
+                save = st.form_submit_button("💾 Save Changes", type="primary")
                 if save:
                     db.update_transaction(
                         txn_id=int(row["id"]),
@@ -347,11 +368,11 @@ elif page == "Transactions":
                         payment_method=e_payment.strip() or None,
                         tags=e_tags.strip() or None,
                     )
-                    st.success("Transaction updated.")
+                    st.success("Transaction updated successfully!")
                     st.rerun()
 
 elif page == "Budgets":
-    st.header("Budgets")
+    st.header("💰 Budgets")
     ym = st.date_input("Month", value=st.session_state.filters["start_date"]).strftime("%Y-%m")
     overall_current = db.get_budget(st.session_state.auth["user_id"], ym, category=None)
     with st.form("budget_form"):
@@ -359,14 +380,14 @@ elif page == "Budgets":
         cat_name = st.text_input("Category (optional)")
         cat_budget_existing = db.get_budget(st.session_state.auth["user_id"], ym, category=cat_name.strip() or None) if cat_name else None
         cat_budget = st.number_input("Category Budget (₹)", min_value=0.0, step=500.0, value=float(cat_budget_existing or 0.0))
-        submitted = st.form_submit_button("Save Budgets")
+        submitted = st.form_submit_button("💾 Save Budgets", type="primary")
         if submitted:
             db.set_budget(st.session_state.auth["user_id"], ym, None, overall_budget)
             if cat_name.strip():
                 db.set_budget(st.session_state.auth["user_id"], ym, cat_name.strip(), cat_budget)
-            st.success("Budget(s) saved.")
+            st.success("Budget(s) saved successfully!")
 
-    st.subheader("Utilization")
+    st.subheader("📊 Utilization")
     df = load_transactions_df()
     total_expense = df.loc[df["type"] == "Expense", "amount"].sum() if not df.empty else 0.0
     if overall_current is not None and overall_current > 0:
@@ -386,15 +407,15 @@ elif page == "Budgets":
                 st.progress(p / 100.0, text=f"{r['category']}: {p:.1f}% (₹ {r['amount']:,.0f} / ₹ {b:,.0f})")
 
 elif page == "Import/Export":
-    st.header("Import / Export")
+    st.header("📤📥 Import / Export")
     st.write("Download your data as CSV or import transactions from CSV.")
 
     df = load_transactions_df()
     if not df.empty:
         csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Download Current View (CSV)", data=csv, file_name="transactions.csv", mime="text/csv")
+        st.download_button("📥 Download Current View (CSV)", data=csv, file_name="transactions.csv", mime="text/csv")
 
-    st.subheader("Import CSV")
+    st.subheader("📤 Import CSV")
     st.caption("Required columns: date (YYYY-MM-DD), amount, type (Expense/Income). Optional: category, description, payment_method, tags")
     file = st.file_uploader("Choose CSV file", type=["csv"])
     if file is not None:
@@ -427,28 +448,27 @@ elif page == "Import/Export":
                     inserted += 1
                 except Exception as exc:  # noqa: BLE001
                     st.warning(f"Skipped a row due to error: {exc}")
-            st.success(f"Imported {inserted} transactions.")
+            st.success(f"Imported {inserted} transactions successfully!")
 
 elif page == "Group Expenses":
     st.switch_page("pages/4_👥_Group_Expenses.py")
 
-
 elif page == "Settings":
-    st.header("Settings")
+    st.header("⚙️ Settings")
     with st.form("password_change_form"):
-        st.subheader("Change Password")
+        st.subheader("🔐 Change Password")
         old = st.text_input("Current Password", type="password")
         new = st.text_input("New Password", type="password")
         new2 = st.text_input("Confirm New Password", type="password")
-        submitted = st.form_submit_button("Update Password")
+        submitted = st.form_submit_button("🔄 Update Password", type="primary")
         if submitted:
             user = db.get_user_by_email(st.session_state.auth["email"])  # fresh read
             if not verify_password(old, user["password_hash"]):
                 st.error("Current password is incorrect.")
+            elif len(new) < 6:
+                st.error("New password must be at least 6 characters long.")
             elif new != new2:
                 st.error("New passwords do not match.")
             else:
                 db.update_user_password(user_id=user["id"], new_hash=hash_password(new))
-                st.success("Password updated.")
-
-
+                st.success("Password updated successfully!")
