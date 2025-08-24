@@ -63,61 +63,6 @@ def get_current_user_name() -> str:
     return st.session_state.auth["name"]
 
 
-def auth_sidebar() -> None:
-    with st.sidebar:
-        st.title("💸 ExpenSync")
-        st.caption("Expenses Tracker")
-        if not st.session_state.auth["logged_in"]:
-            tab_login, tab_register = st.tabs(["Login", "Register"])
-            with tab_login:
-                with st.form("login_form"):
-                    email = st.text_input("Email")
-                    password = st.text_input("Password", type="password")
-                    if st.form_submit_button("Sign In"):
-                        user = db.get_user_by_email(email)
-                        if not user:
-                            st.error("No account found with this email.")
-                        elif not verify_password(password, user["password_hash"]):
-                            st.error("Incorrect password.")
-                        else:
-                            st.session_state.auth = {
-                                "user_id": user["id"],
-                                "name": user["name"],
-                                "email": user["email"],
-                                "logged_in": True,
-                            }
-                            st.success("Signed in.")
-                            st.rerun()
-            with tab_register:
-                with st.form("register_form", clear_on_submit=True):
-                    name = st.text_input("Full Name")
-                    email = st.text_input("Email")
-                    pw1 = st.text_input("Password", type="password")
-                    pw2 = st.text_input("Confirm Password", type="password")
-                    if st.form_submit_button("Create Account"):
-                        if not name or not email or not pw1:
-                            st.error("All fields are required.")
-                        elif pw1 != pw2:
-                            st.error("Passwords do not match.")
-                        elif db.get_user_by_email(email):
-                            st.error("Email already registered.")
-                        else:
-                            db.create_user(name=name, email=email, password_hash=hash_password(pw1))
-                            st.success("Account created. Please log in.")
-        else:
-            st.subheader(f"Hello, {st.session_state.auth['name']}")
-            st.caption(st.session_state.auth["email"])
-            if st.button("Sign Out"):
-                st.session_state.auth = {"user_id": None, "name": None, "email": None, "logged_in": False}
-                st.rerun()
-
-
-def require_login() -> None:
-    if not st.session_state.auth["logged_in"]:
-        st.info("Please log in or register from the left sidebar to continue.")
-        st.stop()
-
-
 def render_filters() -> Dict[str, object]:
     with st.sidebar:
         st.markdown("---")
